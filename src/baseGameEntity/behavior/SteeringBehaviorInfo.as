@@ -30,6 +30,11 @@ package baseGameEntity.behavior
 		/**保持一定偏移的追逐*/
 		public static const BEHAVIOR_TYPE_OFFSET_PURSUIT:int = 0x0001000;
 		/**群集行为的分离*/
+		public static const BEHAVIOR_TYPE_SEPARATION:int = 0x0002000;
+		/**群集行为的队列*/
+		public static const BEHAVIOR_TYPE_ALIGNMENT:int =0x0004000;
+		/**群集行为聚集*/
+		public static const BEHAVIOR_TYPE_COHESION:int =0x0008000;
 		
 		/**Arrive 的三种到达模式*/
 		public static const DECELERATION_SLOW:int = 3;
