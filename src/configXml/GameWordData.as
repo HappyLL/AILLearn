@@ -10,7 +10,7 @@ package configXml
 		public var NumSamplesForSmoothing:int = 50;
 		public var NUMOBSTACLES:int = 10;
 		public var NUMOBSTACLESRADIUS:Number = 50.0;
-		public var NUMSWALL2D:int = 50;
+		public var NUMSWALL2D:int = 4;
 		
 		
 		

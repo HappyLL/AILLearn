@@ -55,10 +55,10 @@ package vector
 		 */
 		public function Normalize():void
 		{
-			var iLen:int = Length();
-			if(iLen<1e-12)
+			var iLen:Number = Length();
+			if(iLen<1e-8)
 			{
-				m_nX = 0;
+				m_nX = 1;
 				m_nY = 0;
 				return;
 			}
@@ -339,6 +339,12 @@ package vector
 		public static function RandInRange(x:Number,y:Number):Number
 		{
 			return x + RandFloat()*(y - x);
+		}
+		
+		public function Copy(stVect:Vector2d):void
+		{
+			this.nX = stVect.nX;
+			this.nY = stVect.nY;
 		}
 		
 	}

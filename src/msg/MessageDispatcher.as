@@ -3,7 +3,6 @@ package msg
 	import algorithm.PriorityQueue;
 	
 	import baseGameEntity.BaseGameEntity;
-	import baseGameEntity.EntityManager;
 	
 	public class MessageDispatcher
 	{

@@ -35,6 +35,8 @@ package baseGameEntity.behavior
 		public static const BEHAVIOR_TYPE_ALIGNMENT:int =0x0004000;
 		/**群集行为聚集*/
 		public static const BEHAVIOR_TYPE_COHESION:int =0x0008000;
+		/**群集行为的集合*/
+		public static const BEHAVIOR_TYPE_FLOCK:int = 0x0010000;
 		
 		/**Arrive 的三种到达模式*/
 		public static const DECELERATION_SLOW:int = 3;
@@ -53,13 +55,15 @@ package baseGameEntity.behavior
 		public static const DiSTANCE_FROM_BOUNDARY:Number = 30;
 		
 		/**SEEK的比例因子*/
-		public var m_nWeightSeek:Number = 1.0; 
+		public var m_nWeightSeek:Number = 1.0;
+		/**Envade*/
+		public var m_nWeightEnvade:Number = 12;
 		/**WANDER的比例因子*/
-		public var m_nWeightWander:Number = 1.0;
+		public var m_nWeightWander:Number = 2;
 		/**ObstacleAvoidance比例因子*/
 		public var m_nWeightObstacleAvoidance:Number = 2.0;
 		/**WallAvoidance比例因子*/
-		public var m_nWeightWallAvoidance:Number = 1.0;
+		public var m_nWeightWallAvoidance:Number = 50.0;
 		/**Interpose的比例因子*/
 		public var m_nWeightInterpose:Number = 1.0;
 		/**Hide的比例因子*/
@@ -67,7 +71,13 @@ package baseGameEntity.behavior
 		/**FollowPath的比例因子*/
 		public var m_nWeightFollowPath:Number = 1.0;
 		/**OFFSETPursuit的比例因子*/
-		public var m_nWeightOffsetPursuit:Number = 1.0;
+		public var m_nWeightOffsetPursuit:Number = 10.0;
+		/**分离的比例因子Separation*/
+		public var m_nWeightSeparation:Number = 25.0;
+		/**队列的比例因子*/
+		public var m_nWeightAlihnment:Number =25.0;
+		/**聚集的比例因子*/
+		public var m_nWeightCohesion:Number = 25.0;
 		
 		public function SteeringBehaviorInfo()
 		{

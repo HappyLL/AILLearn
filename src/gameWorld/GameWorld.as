@@ -12,6 +12,8 @@ package gameWorld
 	import baseGameEntity.vehicle.Vehicle;
 	import baseGameEntity.wall.Wall2D;
 	
+	import cellSpacingPartition.CellSpacingPartition;
+	
 	import configXml.GameWordData;
 	
 	import path.Path;
@@ -33,9 +35,9 @@ package gameWorld
 		private var m_vstObstacles:Vector.<BaseGameEntity>;
 		private var m_szWall2D:Vector.<Wall2D>;
 		private var m_stStage:Stage;
+		private var m_szAgent:Vector.<Vehicle>;
 		
-		
-		
+		private var m_stCellSpacingPartion:CellSpacingPartition;
 		private var m_stCrossHair:Vector2d;
 		private var m_bActive:Boolean;
 		
@@ -54,22 +56,24 @@ package gameWorld
 //			m_stPath.Render();
 //			this.addChild(m_stPath);
 			
+			m_stCellSpacingPartion = new CellSpacingPartition(5,5,500,500,10);
+			
 			var stSpawnPos:Vector2d = new Vector2d(nCx/2,
 				nCy/2.0)
 			m_stVehicle = new Vehicle(this,stSpawnPos,Math.random()*Math.PI*2,new Vector2d(0,0),
 				BaseGameEntityInfo.VEHICLEMASS,BaseGameEntityInfo.MAXSTEERINGFORCE,BaseGameEntityInfo.MAXSPEED,BaseGameEntityInfo.MAXTURNRATEPERSECOND,
-				BaseGameEntityInfo.VEHICLESCALE);
-			stSpawnPos = new Vector2d(nCx/2+Math.random()*nCx/2,
-						nCy/2.0+Math.random()*nCy/2)
-			m_stPurVehicle = new Vehicle(this,stSpawnPos,Math.random()*Math.PI*2,new Vector2d(0,0),
-				BaseGameEntityInfo.VEHICLEMASS,BaseGameEntityInfo.MAXSTEERINGFORCE,BaseGameEntityInfo.MAXSPEED,BaseGameEntityInfo.MAXTURNRATEPERSECOND,
-				BaseGameEntityInfo.VEHICLESCALE);
-			
-			stSpawnPos = new Vector2d(nCx/2+Math.random()*nCx/2,
-				nCy/2.0+Math.random()*nCy/2)
-			m_stEvadeVehicle = new Vehicle(this,stSpawnPos,Math.random()*Math.PI*2,new Vector2d(0,0),
-				BaseGameEntityInfo.VEHICLEMASS,BaseGameEntityInfo.MAXSTEERINGFORCE,BaseGameEntityInfo.MAXSPEED,BaseGameEntityInfo.MAXTURNRATEPERSECOND,
-				BaseGameEntityInfo.VEHICLESCALE);
+				BaseGameEntityInfo.VEHICLESCALE*5);
+//			stSpawnPos = new Vector2d(nCx/2+Math.random()*nCx/2,
+//						nCy/2.0+Math.random()*nCy/2)
+//			m_stPurVehicle = new Vehicle(this,stSpawnPos,Math.random()*Math.PI*2,new Vector2d(0,0),
+//				BaseGameEntityInfo.VEHICLEMASS,BaseGameEntityInfo.MAXSTEERINGFORCE,BaseGameEntityInfo.MAXSPEED,BaseGameEntityInfo.MAXTURNRATEPERSECOND,
+//				BaseGameEntityInfo.VEHICLESCALE);
+//			
+//			stSpawnPos = new Vector2d(nCx/2+Math.random()*nCx/2,
+//				nCy/2.0+Math.random()*nCy/2)
+//			m_stEvadeVehicle = new Vehicle(this,stSpawnPos,Math.random()*Math.PI*2,new Vector2d(0,0),
+//				BaseGameEntityInfo.VEHICLEMASS,BaseGameEntityInfo.MAXSTEERINGFORCE,BaseGameEntityInfo.MAXSPEED,BaseGameEntityInfo.MAXTURNRATEPERSECOND,
+//				BaseGameEntityInfo.VEHICLESCALE);
 			
 //			m_stPurVehicle.Steering.HideOn(m_stVehicle);
 //			m_stPurVehicle.Steering.ObstacleAvoidaceOn();
@@ -84,17 +88,21 @@ package gameWorld
 			m_stVehicle.Steering.WanderOn();
 			//m_stVehicle.Steering.ObstacleAvoidaceOn();
 			//m_stVehicle.Steering.FollowPathOn(m_stPath);
+			m_stVehicle.Steering.WallAvoidaceOn();
 			this.addChild(m_stVehicle);
+			m_stVehicle.scaleX = 0.5;
+			m_stVehicle.scaleY = 0.5;
+			m_stCellSpacingPartion.AddEntity(m_stVehicle);
 			
 			
 			
 //			m_stPurVehicle.Steering.PursuitOn(m_stVehicle);
-			m_stPurVehicle.Steering.OffsetPursuitOn(m_stVehicle,new Vector2d(-50,-50));
-			this.addChild(m_stPurVehicle);
+			//m_stPurVehicle.Steering.OffsetPursuitOn(m_stVehicle,new Vector2d(-50,-50));
+			//this.addChild(m_stPurVehicle);
 //			
 //			m_stEvadeVehicle.Steering.EvadeOn(m_stVehicle);
-			m_stEvadeVehicle.Steering.OffsetPursuitOn(m_stVehicle,new Vector2d(-50,50));
-			this.addChild(m_stEvadeVehicle);
+			//m_stEvadeVehicle.Steering.OffsetPursuitOn(m_stVehicle,new Vector2d(-50,50));
+			//this.addChild(m_stEvadeVehicle);
 			
 			//DrawCrossHair();
 			//DrawObstacles();
@@ -102,12 +110,48 @@ package gameWorld
 			
 			//m_stStage.addEventListener(MouseEvent.CLICK,OnChangeCrossHairPos);
 			//setTimeout(TestFunction,m_nTestTime)
-			
+			m_szAgent = new Vector.<Vehicle>;
+			var stVehicle:Vehicle;
+//			
+			for(var i:int = 0;i<100;++i)
+			{
+//				iFlag = 1;
+//				if(i==0)
+//					iFlag = 4;
+//				var stSpawnPos:Vector2d = new Vector2d(nCx/2,nCy/2.0)
+				stVehicle = new Vehicle(this,stSpawnPos,Math.random()*Math.PI*2,new Vector2d(0,0),
+									BaseGameEntityInfo.VEHICLEMASS,BaseGameEntityInfo.MAXSTEERINGFORCE,BaseGameEntityInfo.MAXSPEED,BaseGameEntityInfo.MAXTURNRATEPERSECOND,
+									BaseGameEntityInfo.VEHICLESCALE*2);
+				this.addChild(stVehicle);
+				stVehicle.Steering.FlockingOn();
+				stVehicle.scaleX = 0.2;
+				stVehicle.scaleY = 0.2;
+				
+//				if(i!=0)
+//					stVehicle.Steering.PursuitOn(m_szAgent[0]);
+//				else 
+					stVehicle.Steering.EvadeOn(m_stVehicle);
+					stVehicle.Steering.WallAvoidaceOn();
+//				if(i!=0)
+//				{
+//					var iFlag:int = 1;
+//					if(i%2==0)
+//					//	iFlag = -1; 
+//					//stVehicle.Steering.OffsetPursuitOn(m_szAgent[0],new Vector2d(-4*i,4*i*iFlag));
+//				}
+				m_szAgent.push(stVehicle);
+				m_stCellSpacingPartion.AddEntity(stVehicle);
+				
+			}
+			m_stVehicle.Steering.PursuitOn(m_szAgent[0]);
+			//m_stVehicle.Steering.Pursuit(m_szAgent[0]);
+			DrawWall2D();
 		}
 		
 		public function GetVehicle():Vehicle
 		{
-			return m_stVehicle;
+			//return m_stVehicle;
+			return m_szAgent[0]
 		}
 		
 		public function TestFunction():void
@@ -150,16 +194,21 @@ package gameWorld
 			var stFrom:Vector2d;
 			var nDist:Number;
 			var nAngle:Number;
+			var vtPt:Vector.<Vector2d> = new Vector.<Vector2d>(4);
+			vtPt[0] = new Vector2d(20,20);
+			vtPt[1] = new Vector2d(480,20);
+			vtPt[2] = new Vector2d(480,480);
+			vtPt[3] = new Vector2d(20,480);
 			for(var i:int = 0;i<GameWordData.Get().NUMSWALL2D;++i)
 			{
-				nDist = 100*(1+Math.random());
-				stFrom = new Vector2d(Math.random()*1440,Math.random()*900)
-				nAngle = 2*Math.PI*Math.random();
-				stTo = new Vector2d(stFrom.nX+nDist*Math.cos(nAngle),stFrom.nY+nDist*Math.sin(nAngle));
+				//nDist = 100*(1+Math.random());
+				stFrom = vtPt[i]//new Vector2d(Math.random()*1440,Math.random()*900)
+				//nAngle = 2*Math.PI*Math.random();
+				stTo = vtPt[(i+1)%4];//new Vector2d(stFrom.nX+nDist*Math.cos(nAngle),stFrom.nY+nDist*Math.sin(nAngle));
 				stWall2D = new Wall2D(stFrom,stTo);
 				stWall2D.Render();
 				this.addChild(stWall2D);
-				stWall2D.visible = false;
+				stWall2D.visible = true;
 				m_szWall2D.push(stWall2D);
 			}
 			
@@ -308,6 +357,33 @@ package gameWorld
 			
 		}
 		
+		public function TagVehiclesWithinViewRange(stBaseEntity:BaseGameEntity,nRange:Number):void
+		{
+			TagNeighbors(stBaseEntity,m_szAgent,nRange);
+		}
+		
+		/**
+		 * 利用标签来判断是否与在领域半径内的物体接触
+		 * @param stBaseEntity当前的物体
+		 * @oaram szContainer 当前的容器
+		 * @param nRange:当前检测距离
+		 */
+		public function TagNeighbors(stBaseEntity:BaseGameEntity,szContainer:*,nRange:Number):void
+		{
+			var nDisSq:Number;
+			var nRadiusSq:Number;
+			if(szContainer==null)
+				return;
+			for(var i:int = 0; i<szContainer.length;++i)
+			{
+				nDisSq = stBaseEntity.Pos.DistanceSq(szContainer[i].Pos);
+				nRadiusSq = (nRange+szContainer[i].BRadius)*(nRange+szContainer[i].BRadius);
+				szContainer[i].UnTagged();
+				if(nDisSq<nRadiusSq&&szContainer[i]!=stBaseEntity&&szContainer[i].visible)
+					szContainer[i].Tagged();
+			}
+		}
+		
 		public function get CxClient():Number
 		{
 			return m_nX;
@@ -318,9 +394,19 @@ package gameWorld
 			return m_nY;
 		}
 		
+		public function get Agents():Vector.<Vehicle>
+		{
+			return m_szAgent;
+		}
+		
 		public function get CrossHair():Vector2d
 		{
 			return m_stCrossHair;
+		}
+		
+		public function get CellSpace():CellSpacingPartition
+		{
+			return m_stCellSpacingPartion;
 		}
 		
 		/**
@@ -328,9 +414,26 @@ package gameWorld
 		 */
 		private function Update(iTs:int):void
 		{
+			
+//			m_stPurVehicle.Update(iTs);
+//			m_stEvadeVehicle.Update(iTs);
+			var iLn:int = m_szAgent.length;
+////			//for(var i:int = 0;i<iLn;++i)
+////			//{
+////				var k:int = (((iTs)%100)/10);
+////				var j:int = (k+1)*10;
+////				var f:int = k*10;
+////				for(var i:int = f;i<j;++i)
+////				{
+////					m_szAgent[i].Update(10);
+////				}
+////			//}
+			for(var i:int = 0;i<iLn;++i)
+			{
+				m_szAgent[i].Update(iTs);
+			}
+			
 			m_stVehicle.Update(iTs);
-			m_stPurVehicle.Update(iTs);
-			m_stEvadeVehicle.Update(iTs);
 		}
 		
 		/**
@@ -339,8 +442,8 @@ package gameWorld
 		 */
 		public function Tick(uiTickCount:uint):void
 		{
-			//if(uiTickCount%2==0)
-				Update(1);
+			//if(uiTickCount%10==0)
+				Update(uiTickCount);
 			//if(uiTickCount%5==0)
 				//UpdateRender();
 		}

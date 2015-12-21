@@ -5,8 +5,8 @@ package baseGameEntity.vehicle
 		private static var pIns:VehicleInfo; 
 		
 		
-		public var m_szPointOfVeh:Array = [[0,40],[-60*Math.cos(5*Math.PI/12),-60*Math.sin(5*Math.PI/12)+40],
-			[60*Math.cos(5*Math.PI/12),-60*Math.sin(5*Math.PI/12)+40]]
+		public var m_szPointOfVeh:Array = [[40,0],[-20*Math.cos(5*Math.PI/12)-20,20*Math.sin(5*Math.PI/12)],
+			[-20*Math.cos(5*Math.PI/12)-20,-20*Math.sin(5*Math.PI/12)]]
 		
 		public function VehicleInfo()
 		{

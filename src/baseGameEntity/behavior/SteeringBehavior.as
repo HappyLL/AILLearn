@@ -23,6 +23,7 @@ package baseGameEntity.behavior
 		private var m_stHideVec:Vehicle;
 		private var m_stLeader:Vehicle;
 		private var m_stOffsetPt:Vector2d;
+		private var m_bCellSpaceOn:Boolean;
 		
 		/**当前wander圈的半径*/
 		private var m_nWanderRadius:Number;
@@ -35,6 +36,8 @@ package baseGameEntity.behavior
 		
 		private var m_nBoxLength:Number;
 		
+		private var m_dViewDistance:Number;
+		
 		
 		public function SteeringBehavior(stVeicle:Vehicle)
 		{
@@ -43,9 +46,11 @@ package baseGameEntity.behavior
 			m_iMask = 0;
 			m_stFocusVec = null;
 			m_nWanderRadius = 10;
-			m_nWanderDistance = 50;
-			m_nWanderJitter = 25;
+			m_nWanderDistance = 60;
+			m_nWanderJitter = 60;
 			m_stWanderTarget = new Vector2d(m_nWanderRadius*Math.SQRT1_2,m_nWanderRadius*Math.SQRT1_2);
+			m_dViewDistance = m_stVehicle.BRadius;
+			m_bCellSpaceOn = true;
 		}
 		
 		/**
@@ -56,14 +61,23 @@ package baseGameEntity.behavior
 		{
 			m_stSteeringForce.Zero();
 			
+			if(SteeringBehaviorInfo.Get().On(m_iMask,SteeringBehaviorInfo.BEHAVIOR_TYPE_SEPARATION)||SteeringBehaviorInfo.Get().On(m_iMask,SteeringBehaviorInfo.BEHAVIOR_TYPE_ALIGNMENT)
+				||SteeringBehaviorInfo.Get().On(m_iMask,SteeringBehaviorInfo.BEHAVIOR_TYPE_COHESION))
+			{
+				if(!m_bCellSpaceOn)				
+					m_stVehicle.World.TagVehiclesWithinViewRange(m_stVehicle,m_dViewDistance);
+				else
+					m_stVehicle.World.CellSpace.CalculateNeighbors(m_stVehicle.Pos,m_dViewDistance);
+			}
+			
 			m_stSteeringForce = CalculatePrioritized();
 			
 			return new Vector2d(m_stSteeringForce.nX,m_stSteeringForce.nY);
 		}
 		
-		public function isSpacePartitioningOn():Boolean
+		public function IsSpacePartitioningOn():Boolean
 		{
-			return false;
+			return m_bCellSpaceOn;
 		}
 		
 		public function OrMask(value:int):void
@@ -183,9 +197,9 @@ package baseGameEntity.behavior
 			m_stWanderTarget.MulNumber(m_nWanderRadius);
 			var stNewVector2d:Vector2d = new Vector2d(m_nWanderDistance,0);
 			var stTargetPos:Vector2d = stNewVector2d.AddVectorRet(m_stWanderTarget);
-//			var stPt:Point = new Point;
-//			stPt.x = stTargetPos.nX;stPt.y = stTargetPos.nY;
-//			stPt= m_stVehicle.localToGlobal(stPt);
+			//			var stPt:Point = new Point;
+			//			stPt.x = stTargetPos.nX;stPt.y = stTargetPos.nY;
+			//			stPt= m_stVehicle.localToGlobal(stPt);
 			stTargetPos = TransformationHandle.Get().PointToParentSpace(stTargetPos,m_stVehicle.Heading,m_stVehicle.Side,m_stVehicle.Pos);
 			return stTargetPos.SubVectorRet(m_stVehicle.Pos);
 		}
@@ -364,7 +378,7 @@ package baseGameEntity.behavior
 					stHidePoint.nX = stNowHidePoint.nX;
 					stHidePoint.nY = stNowHidePoint.nY;
 				}
-					
+				
 			}
 			
 			if(nDistance==Infinity)
@@ -412,50 +426,159 @@ package baseGameEntity.behavior
 		}
 		
 		/**
+		 * Separation 分离
+		 * 求得是相互的反作用力的合力
+		 * @param szNeighbors 附近的运动的物体
+		 */
+		public function Separation(szNeighbors:Vector.<Vehicle>):Vector2d
+		{
+			var stForce:Vector2d = new Vector2d;
+			var stAddForce:Vector2d;
+			var iLn:int = szNeighbors.length
+			
+			for(var i:int = 0;i<iLn;++i)
+			{
+				if(szNeighbors[i].IsTagged()&&(szNeighbors[i]!=m_stVehicle))
+				{
+					
+					stAddForce = m_stVehicle.Pos.SubVectorRet(szNeighbors[i].Pos);
+					var nDis:Number = stAddForce.Length();
+					if(nDis==0)
+						continue;
+					stAddForce = Vector2d.Vect2DNormalize(stAddForce).DivNumberRet(nDis);
+					stForce.AddVector(stAddForce);
+				}
+			}
+			
+			return stForce;
+		}
+		
+		public function SeparationPlus(szNeighbors:Vector.<BaseGameEntity>):Vector2d
+		{
+			var stForce:Vector2d = new Vector2d;
+			var stAddForce:Vector2d;
+			for(var i:int = 0;i<szNeighbors.length&&szNeighbors[i]!=null;++i)
+			{
+				stAddForce = m_stVehicle.Pos.SubVectorRet(szNeighbors[i].Pos);
+				var nDis:Number = stAddForce.Length();
+				if(nDis==0)
+					continue;
+				stAddForce = Vector2d.Vect2DNormalize(stAddForce).DivNumberRet(nDis);
+				stForce.AddVector(stAddForce);
+			}
+			return stForce;
+		}
+		
+		/**
+		 * Alignment
+		 * 默认合力方向为合速度方向 所以需要减去当前无图的速度朝向 这样的话得打的就是分力 且得到的就是合力方向
+		 * @param szNeighbors 附近运动的物体
+		 */
+		public function Alignment(szNeighbors:Vector.<Vehicle>):Vector2d
+		{
+			var szNowHeading:Vector2d = new Vector2d;
+			var iNowHeadingCount:int = 0;
+			var iLn:int = szNeighbors.length;
+			
+			for(var i:int = 0;i<iLn;++i)
+			{
+				if(szNeighbors[i].IsTagged()&&szNeighbors[i]!=m_stVehicle)
+				{
+					szNowHeading.AddVector(szNeighbors[i].Heading);
+					iNowHeadingCount++;
+				}
+			}
+			
+			if(iNowHeadingCount>0)
+			{
+				szNowHeading.DivNumber(iNowHeadingCount);
+				szNowHeading.SubVector(m_stVehicle.Heading);
+			}
+			return szNowHeading;
+		}
+		
+		public function AlignmentPlus(szNeighbors:Vector.<BaseGameEntity>):Vector2d
+		{
+			var szNowHeading:Vector2d = new Vector2d;
+			var iNowHeadingCount:int = 0;
+			
+			for(var i:int = 0;i<szNeighbors.length&&szNeighbors[i]!=null;++i)
+			{
+				szNowHeading.AddVector(szNeighbors[i].Heading);
+				iNowHeadingCount++;
+			}
+			
+			if(iNowHeadingCount>0)
+			{
+				szNowHeading.DivNumber(iNowHeadingCount);
+				szNowHeading.SubVector(m_stVehicle.Heading);
+			}
+			return szNowHeading;
+			
+		}
+		
+		/**
+		 * Cohesion
+		 * 同时向质心靠拢
+		 * @param szNeighbors 
+		 */
+		public function Cohesion(szNeighbors:Vector.<Vehicle>):Vector2d
+		{
+			//质心
+			var stCenterMass:Vector2d = new Vector2d;
+			var iNerghborCount:int = 0;
+			var iLn:int = szNeighbors.length;
+			var stForce:Vector2d = new Vector2d;
+			
+			for(var i:int = 0;i<iLn;++i)
+			{
+				if(szNeighbors[i].IsTagged()&&szNeighbors[i]!=m_stVehicle)
+				{
+					stCenterMass.AddVector(szNeighbors[i].Pos);
+					iNerghborCount++;
+				}
+			}
+			
+			if(iNerghborCount>0)
+			{
+				stCenterMass.DivNumber(iNerghborCount);
+				stForce = Seek(stCenterMass);
+			}
+			return Vector2d.Vect2DNormalize(stForce);
+		}
+		
+		public function CohesionPlus(szNeighbors:Vector.<BaseGameEntity>):Vector2d
+		{
+			var stCenterMass:Vector2d = new Vector2d;
+			var iNerghborCount:int = 0;
+			var stForce:Vector2d = new Vector2d;
+			
+			for(var i:int = 0;i<szNeighbors.length&&szNeighbors[i]!=null;++i)
+			{
+				stCenterMass.AddVector(szNeighbors[i].Pos);
+				iNerghborCount++;
+			}
+			
+			if(iNerghborCount>0)
+			{
+				stCenterMass.DivNumber(iNerghborCount);
+				stForce = Seek(stCenterMass);
+			}
+			return Vector2d.Vect2DNormalize(stForce);
+		}
+		
+		
+		/**
 		 * 计算当前运动状态
 		 * 计算所有力的合力
 		 */
 		private function CalculatePrioritized():Vector2d
 		{
 			var stForce:Vector2d;
-			if(SteeringBehaviorInfo.Get().On(m_iMask,SteeringBehaviorInfo.BEHAVIOR_TYPE_SEEK))
-			{
-				stForce = Seek(m_stVehicle.World.CrossHair).MulNumberRet(SteeringBehaviorInfo.Get().m_nWeightSeek);
-				if(!AccumulateForce(m_stSteeringForce,stForce))
-					return m_stSteeringForce;
-			}
 			
-			if(SteeringBehaviorInfo.Get().On(m_iMask,SteeringBehaviorInfo.BEHAVIOR_TYPE_FLEE))
+			if(SteeringBehaviorInfo.Get().On(m_iMask,SteeringBehaviorInfo.BEHAVIOR_TYPE_WALL_AVOIDANCE))
 			{
-				stForce = Flee(m_stVehicle.World.CrossHair).MulNumberRet(SteeringBehaviorInfo.Get().m_nWeightSeek);
-				if(!AccumulateForce(m_stSteeringForce,stForce))
-					return m_stSteeringForce;
-			}
-			
-			if(SteeringBehaviorInfo.Get().On(m_iMask,SteeringBehaviorInfo.BEHAVIOR_TYPE_ARRIVE))
-			{
-				stForce = Arrive(m_stVehicle.World.CrossHair,SteeringBehaviorInfo.DECELERATION_NORMAL);
-				if(!AccumulateForce(m_stSteeringForce,stForce))
-					return m_stSteeringForce;
-			}
-			
-			if(SteeringBehaviorInfo.Get().On(m_iMask,SteeringBehaviorInfo.BEHAVIOR_TYPE_PURSUIT))
-			{
-				stForce = Pursuit(m_stFocusVec);
-				if(!AccumulateForce(m_stSteeringForce,stForce))
-					return m_stSteeringForce;
-			}
-			
-			if(SteeringBehaviorInfo.Get().On(m_iMask,SteeringBehaviorInfo.BEHAVIOR_TYPE_EVADE))
-			{
-				stForce = Evade(m_stFocusVec);
-				if(!AccumulateForce(m_stSteeringForce,stForce))
-					return m_stSteeringForce;
-			}
-			
-			if(SteeringBehaviorInfo.Get().On(m_iMask,SteeringBehaviorInfo.BEHAVIOR_TYPE_WANDER))
-			{
-				stForce = Wander().MulNumberRet(SteeringBehaviorInfo.Get().m_nWeightWander);
+				stForce = WallObstacle().MulNumberRet(SteeringBehaviorInfo.Get().m_nWeightWallAvoidance);
 				if(!AccumulateForce(m_stSteeringForce,stForce))
 					return m_stSteeringForce;
 			}
@@ -467,12 +590,85 @@ package baseGameEntity.behavior
 					return m_stSteeringForce;
 			}
 			
-			if(SteeringBehaviorInfo.Get().On(m_iMask,SteeringBehaviorInfo.BEHAVIOR_TYPE_WALL_AVOIDANCE))
+			if(SteeringBehaviorInfo.Get().On(m_iMask,SteeringBehaviorInfo.BEHAVIOR_TYPE_EVADE))
 			{
-				stForce = WallObstacle().MulNumberRet(SteeringBehaviorInfo.Get().m_nWeightWallAvoidance);
+				stForce = Evade(m_stFocusVec).MulNumberRet(SteeringBehaviorInfo.Get().m_nWeightEnvade);
 				if(!AccumulateForce(m_stSteeringForce,stForce))
 					return m_stSteeringForce;
 			}
+			
+			if(SteeringBehaviorInfo.Get().On(m_iMask,SteeringBehaviorInfo.BEHAVIOR_TYPE_FLEE))
+			{
+				stForce = Flee(m_stVehicle.World.CrossHair).MulNumberRet(SteeringBehaviorInfo.Get().m_nWeightSeek);
+				if(!AccumulateForce(m_stSteeringForce,stForce))
+					return m_stSteeringForce;
+			}
+			
+			if(SteeringBehaviorInfo.Get().On(m_iMask,SteeringBehaviorInfo.BEHAVIOR_TYPE_SEPARATION))
+			{
+				if(!m_bCellSpaceOn)
+					stForce = Separation(m_stVehicle.World.Agents).MulNumberRet(SteeringBehaviorInfo.Get().m_nWeightSeparation);
+				else 
+					stForce = SeparationPlus(m_stVehicle.World.CellSpace.Neighbors).MulNumberRet(SteeringBehaviorInfo.Get().m_nWeightSeparation);
+				if(!AccumulateForce(m_stSteeringForce,stForce))
+					return m_stSteeringForce;
+			}
+			
+			if(SteeringBehaviorInfo.Get().On(m_iMask,SteeringBehaviorInfo.BEHAVIOR_TYPE_ALIGNMENT))
+			{
+				if(!m_bCellSpaceOn)
+					stForce = Alignment(m_stVehicle.World.Agents).MulNumberRet(SteeringBehaviorInfo.Get().m_nWeightAlihnment);
+				else 
+					stForce = AlignmentPlus(m_stVehicle.World.CellSpace.Neighbors).MulNumberRet(SteeringBehaviorInfo.Get().m_nWeightAlihnment);
+				if(!AccumulateForce(m_stSteeringForce,stForce))
+					return m_stSteeringForce;
+			}
+			
+			if(SteeringBehaviorInfo.Get().On(m_iMask,SteeringBehaviorInfo.BEHAVIOR_TYPE_COHESION))
+			{
+				if(!m_bCellSpaceOn)
+					stForce = Cohesion(m_stVehicle.World.Agents).MulNumberRet(SteeringBehaviorInfo.Get().m_nWeightCohesion);
+				else 
+					stForce = CohesionPlus(m_stVehicle.World.CellSpace.Neighbors).MulNumberRet(SteeringBehaviorInfo.Get().m_nWeightCohesion);
+				if(!AccumulateForce(m_stSteeringForce,stForce))
+					return m_stSteeringForce;
+			}
+			
+			if(SteeringBehaviorInfo.Get().On(m_iMask,SteeringBehaviorInfo.BEHAVIOR_TYPE_SEEK))
+			{
+				stForce = Seek(m_stVehicle.World.CrossHair).MulNumberRet(SteeringBehaviorInfo.Get().m_nWeightSeek);
+				if(!AccumulateForce(m_stSteeringForce,stForce))
+					return m_stSteeringForce;
+			}
+			
+			if(SteeringBehaviorInfo.Get().On(m_iMask,SteeringBehaviorInfo.BEHAVIOR_TYPE_ARRIVE))
+			{
+				stForce = Arrive(m_stVehicle.World.CrossHair,SteeringBehaviorInfo.DECELERATION_NORMAL);
+				if(!AccumulateForce(m_stSteeringForce,stForce))
+					return m_stSteeringForce;
+			}
+			
+			if(SteeringBehaviorInfo.Get().On(m_iMask,SteeringBehaviorInfo.BEHAVIOR_TYPE_WANDER))
+			{
+				stForce = Wander().MulNumberRet(SteeringBehaviorInfo.Get().m_nWeightWander);
+				if(!AccumulateForce(m_stSteeringForce,stForce))
+					return m_stSteeringForce;
+			}
+			
+			if(SteeringBehaviorInfo.Get().On(m_iMask,SteeringBehaviorInfo.BEHAVIOR_TYPE_PURSUIT))
+			{
+				stForce = Pursuit(m_stFocusVec);
+				if(!AccumulateForce(m_stSteeringForce,stForce))
+					return m_stSteeringForce;
+			}
+			
+			if(SteeringBehaviorInfo.Get().On(m_iMask,SteeringBehaviorInfo.BEHAVIOR_TYPE_OFFSET_PURSUIT))
+			{
+				stForce = OffsetPursuit(m_stLeader,m_stOffsetPt).MulNumberRet(SteeringBehaviorInfo.Get().m_nWeightOffsetPursuit);
+				if(!AccumulateForce(m_stSteeringForce,stForce))
+					return m_stSteeringForce;
+			}
+			
 			
 			if(SteeringBehaviorInfo.Get().On(m_iMask,SteeringBehaviorInfo.BEHAVIOR_TYPE_INTERPOSE))
 			{
@@ -491,13 +687,6 @@ package baseGameEntity.behavior
 			if(SteeringBehaviorInfo.Get().On(m_iMask,SteeringBehaviorInfo.BEHAVIOR_TYPE_FOLLOW_PATH))
 			{
 				stForce = FollowPath(m_stPath).MulNumberRet(SteeringBehaviorInfo.Get().m_nWeightFollowPath);
-				if(!AccumulateForce(m_stSteeringForce,stForce))
-					return m_stSteeringForce;
-			}
-			
-			if(SteeringBehaviorInfo.Get().On(m_iMask,SteeringBehaviorInfo.BEHAVIOR_TYPE_OFFSET_PURSUIT))
-			{
-				stForce = OffsetPursuit(m_stLeader,m_stOffsetPt);
 				if(!AccumulateForce(m_stSteeringForce,stForce))
 					return m_stSteeringForce;
 			}
@@ -654,6 +843,54 @@ package baseGameEntity.behavior
 		public function OffsetPursuitOff():void
 		{
 			m_iMask ^= SteeringBehaviorInfo.BEHAVIOR_TYPE_OFFSET_PURSUIT
+		}
+		
+		public function SeparationOn():void
+		{
+			m_iMask |= SteeringBehaviorInfo.BEHAVIOR_TYPE_SEPARATION;
+		}
+		
+		public function SeparationOff():void
+		{
+			m_iMask ^= SteeringBehaviorInfo.BEHAVIOR_TYPE_SEPARATION;
+		}
+		
+		public function AlignmentOn():void
+		{
+			m_iMask |= SteeringBehaviorInfo.BEHAVIOR_TYPE_ALIGNMENT;
+		}
+		
+		public function AlignmentOff():void
+		{
+			m_iMask ^= SteeringBehaviorInfo.BEHAVIOR_TYPE_ALIGNMENT;
+		}
+		
+		public function CohesionOn():void
+		{
+			m_iMask |= SteeringBehaviorInfo.BEHAVIOR_TYPE_COHESION;
+		}
+		
+		public function CohesionOff():void
+		{
+			m_iMask ^= SteeringBehaviorInfo.BEHAVIOR_TYPE_COHESION;
+		}
+		/**开启群集行为*/
+		public function FlockingOn():void
+		{
+			//m_iMask |= SteeringBehaviorInfo.BEHAVIOR_TYPE_FLOCK;
+			CohesionOn();
+			AlignmentOn();
+			SeparationOn();
+			WanderOn();
+		}
+		
+		public function FlockingOff():void
+		{
+			//m_iMask ^= SteeringBehaviorInfo.BEHAVIOR_TYPE_FLOCK;
+			CohesionOff();
+			AlignmentOff();
+			SeparationOff();
+			WanderOff();
 		}
 		
 	}

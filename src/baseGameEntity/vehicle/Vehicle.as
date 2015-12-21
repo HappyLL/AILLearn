@@ -6,6 +6,7 @@ package baseGameEntity.vehicle
 	
 	import baseGameEntity.behavior.SteeringBehavior;
 	import baseGameEntity.behavior.SteeringBehaviorInfo;
+	import baseGameEntity.entityFunctionTemplates.EntityFunctionTemplates;
 	import baseGameEntity.info.BaseGameEntityInfo;
 	import baseGameEntity.moveEntity.MoveEntity;
 	import baseGameEntity.smoother.Smoother;
@@ -13,6 +14,8 @@ package baseGameEntity.vehicle
 	import configXml.GameWordData;
 	
 	import gameWorld.GameWorld;
+	
+	import transformation.TransformationHandle;
 	
 	import vector.Vector2d;
 	import vector.VectorInfo;
@@ -31,7 +34,10 @@ package baseGameEntity.vehicle
 		private var m_bSmoothingOn:Boolean;
 		private var m_nTimeElapsed:Number;
 		private var m_szVehicleVB:Vector.<Vector2d>;
+		private var m_szVehicleVBTMP:Vector.<Vector2d>;
 		private var m_szFeels:Vector.<Vector2d>;
+		private var m_szPoint:Vector.<Number>;
+		private var m_stOldPos:Vector2d;
 		
 		//private var m_stTestShape:Shape;
 		//private var m_bFirstRender:Boolean;
@@ -45,7 +51,7 @@ package baseGameEntity.vehicle
 			//stHeading = stPos.SubVectorRet(stHeading);
 			//stHeading.Normalize();
 			super(stPos,nScale,stVelocity,nMaxSpeed,
-				new Vector2d(0,1),
+				new Vector2d(1,0),
 				nMass,new Vector2d(nScale,nScale),nMaxTurnRate,nMaxForce);
 			
 			m_stGOW = stWorld;
@@ -58,30 +64,56 @@ package baseGameEntity.vehicle
 			m_szFeels = new Vector.<Vector2d>(3);
 			
 			ChangeSpritePos();
-			DrawVehicleShape();
+			DrawMySelf();
+			m_stOldPos = new Vector2d;
 			//Render();
 		}
-		//当前物体运动的形状
-		private function DrawVehicleShape():void
+		
+		public function DrawMySelf():void
 		{
-			var vt:Vector.<Number> = new Vector.<Number>;
-			for(var i:int = 0;i<m_szVehicleVB.length;++i)
-			{
-				vt.push(m_szVehicleVB[i].nX);
-				vt.push(m_szVehicleVB[i].nY);
-			}
+			
 			
 			m_stSprite = new Sprite;
 			this.addChild(m_stSprite);
 			
 			m_stShape = new Shape;
+			m_stSprite.addChild(m_stShape);
+			DrawVehicleShape(m_szVehicleVB);
+		}
+		
+		//当前物体运动的形状
+		private function DrawVehicleShape(szVehicleVB:Vector.<Vector2d>):void
+		{
+			m_stShape.graphics.clear();
+			
+			//var vt:Vector.<Number> = new Vector.<Number>;
+			for(var i:int = 0;i<szVehicleVB.length;++i)
+			{
+//				vt.push(szVehicleVB[i].nX);
+//				vt.push(szVehicleVB[i].nY);
+				m_szPoint[i<<1] = szVehicleVB[i].nX;
+				m_szPoint[(i<<1)|1] = szVehicleVB[i].nY;
+			}
+			
 			m_stShape.graphics.beginFill(0x0000FF,1);
 			m_stShape.graphics.lineStyle(2,0x0000FF);
-			//m_stShape.graphics.drawTriangles(vt);
-			m_stShape.graphics.drawCircle(0,0,10);
+			m_stShape.graphics.drawTriangles(m_szPoint);
+			//m_stShape.graphics.drawCircle(0,0,m_nBoundingRadius);
 			m_stShape.graphics.endFill();
-			m_stSprite.addChild(m_stShape)
-				
+			
+//			m_stShape.graphics.lineStyle(2,0x000000)
+//			m_stShape.graphics.moveTo(0,0);
+//			var stX:Vector2d = m_stHeading.MulNumberRet(100);
+//			m_stShape.graphics.lineTo(stX.nX,stX.nY);
+//			
+//			m_stShape.graphics.lineStyle(2,0x000000)
+//			m_stShape.graphics.moveTo(0,0);
+//			var stY:Vector2d = m_stSide.MulNumberRet(100);
+//			m_stShape.graphics.lineTo(stY.nX,stY.nY);
+			
+			//m_stSprite.addChild(m_stShape)
+			
+			//InitializeBuffer();
 //			m_stTestShape = new Shape;
 //			m_stTestShape.graphics.beginFill(0xffff00);
 //			m_stTestShape.graphics.drawCircle(50,50,10)
@@ -102,7 +134,9 @@ package baseGameEntity.vehicle
 		
 		private function InitializeBuffer():void
 		{
-			m_szVehicleVB = new Vector.<Vector2d>; 
+			m_szVehicleVB = new Vector.<Vector2d>;
+			m_szVehicleVBTMP = new Vector.<Vector2d>(3);
+			m_szPoint = new Vector.<Number>(6);
 			
 			var szVechiclePoint:Vector.<Vector2d> 
 							= new Vector.<Vector2d>;
@@ -122,27 +156,29 @@ package baseGameEntity.vehicle
 		public override function Update(nTimeElapsed:Number):void
 		{
 			
-			m_nTimeElapsed = nTimeElapsed;
+			m_nTimeElapsed = 1;
 			//IsRotateHeadingToFacePosition(this.World.CrossHair);
-			//Render();
+//			if(nTimeElapsed%10==0)
+//				Render();
+			//nTimeElapsed = m_nTimeElapsed;
 //			if(Vector2d.IsSimaEqualVector2d(this.World.CrossHair,this.Pos,VectorInfo.EPS_ST))
 //			{
 //				//Render();
 //				return;
 //			}
 			//trace("Update");
-			var stOldPos:Vector2d = this.Pos;
+			m_stOldPos.Copy(this.Pos);
 			var stSteeingForce:Vector2d;
 			//算出当前受到的力
 			stSteeingForce = m_stSteerBehavior.Calculate();
 			//算出当前的加速度
 			var stAcceleration:Vector2d = stSteeingForce.DivNumberRet(m_nMass);
 			//加速度乘以时间+原始的速度
-			m_stVelocity.AddVector(stAcceleration.MulNumberRet(nTimeElapsed));
+			m_stVelocity.AddVector(stAcceleration.MulNumberRet(m_nTimeElapsed));
 			//判断当前速度是否超过最大值
 			m_stVelocity.Truncate(m_nMaxSpeed);
 			//更新位置
-			m_stPos.AddVector(m_stVelocity.MulNumberRet(nTimeElapsed));
+			m_stPos.AddVector(m_stVelocity.MulNumberRet(m_nTimeElapsed));
 			//速度更新完之后我们需要更新物体的朝向,首先判断当前是否为0向量
 			if(m_stVelocity.LengthSq()>0.0000001)
 			{
@@ -151,14 +187,18 @@ package baseGameEntity.vehicle
 				m_stSide = m_stHeading.Perp();
 				//trace(m_stHeading.Dot(m_stSide))
 				//Render();
+				if(nTimeElapsed%2==0)
+					Render();
 			}
+			
+			//EntityFunctionTemplates.EnforceNonPenetrationConstraint(this,this.World.CellSpace.Neighbors);
 			//判断当前的位置有没有出界
 			Vector2d.WrapAround(m_stPos,m_stGOW.CxClient,m_stGOW.CyClient);
 			//空间划分暂时不需要用到
-//			if(Steering().isSpacePartitioningOn())
-//			{
-//				World().CellSpace().UpdateEntity(this,stOldPos);
-//			}
+			if(m_stSteerBehavior.IsSpacePartitioningOn())
+			{
+				World.CellSpace.UpdateEntity(this,m_stOldPos);
+			}
 			if(IsSmoothingOn())
 			{
 				m_stHeadingSmoother = m_stHeadingSmoother.Update(Heading()); 
@@ -226,15 +266,14 @@ package baseGameEntity.vehicle
 		
 		public override function Render():void
 		{
+			//trace(m_stVelocity.nX,m_stVelocity.nY);
 			
-			trace(m_stVelocity.nX,m_stVelocity.nY);
+			//trace(m_stRenderHeading.nX,m_stRenderHeading.nY);
 			
-			trace(m_stRenderHeading.nX,m_stRenderHeading.nY);
-			
-			trace(m_stHeading.nX,m_stHeading.nY);
-			trace("\n")
-			if(Vector2d.IsSimaEqualVector2d(m_stRenderHeading,m_stHeading,VectorInfo.EPS))
-				return;
+			//trace(m_stHeading.nX,m_stHeading.nY);
+			//trace("\n")
+//			if(Vector2d.IsSimaEqualVector2d(m_stRenderHeading,m_stHeading,VectorInfo.EPS))
+//				return;
 			//var stTarPos:Vector2d = this.m_stGOW.CrossHair;
 			//trace(this.Pos.nX,this.Pos.nY);
 			//trace(stTarPos.nX,stTarPos.nY);
@@ -277,12 +316,34 @@ package baseGameEntity.vehicle
 //			if(nRad>m_nMaxTurnRate) nRad = m_nMaxTurnRate;
 			//var nAngel:Number = nRad*180/Math.PI
 			//m_stShape.rotation += nAngel*m_stHeading.Sign(this.m_stGOW.CrossHair)*(-1);
-			var stMatrix:Matrix = m_stShape.transform.matrix;
-			if(stMatrix==null)
-				stMatrix = new Matrix;
-			var stNewMatrix:Matrix = new Matrix(m_stHeading.nX,m_stSide.nX,m_stHeading.nY,m_stSide.nY);
-			stMatrix.concat(stNewMatrix);
-			m_stShape.transform.matrix = stMatrix;
+//			var iHNumsX:Number,iSNumsX:Number;
+//			var iHNumsY:Number,iSNumsY:Number;
+//			iHNumsX = m_stHeading.nX;
+//			iHNumsY = m_stHeading.nY;
+//			iSNumsX = m_stSide.nX;
+//			iSNumsY = m_stSide.nY;
+//			var a:Number,c:Number;
+//			var na:Number,nc:Number;
+//			var stMatrix:Matrix = m_stSprite.transform.matrix;
+//			if(stMatrix==null)
+//				stMatrix = new Matrix;
+//			a = stMatrix.a;c = stMatrix.c;
+//			na = m_stHeading.nX;nc = m_stHeading.nY;
+//			var nTmp:Number = (na*a+nc*c)/(a*a+c*c);
+//			if(nTmp>1.0)
+//				nTmp = 1.0;
+//			else if(nTmp<-1.0)
+//				nTmp = -1.0;
+//			var nRad:Number = Math.acos((nTmp));
+//			stMatrix.rotate(nRad);
+//			//var stNewMatrix:Matrix = new Matrix(m_stHeading.nX,m_stSide.nX,m_stHeading.nY,m_stSide.nY);
+//			//stMatrix.concat(stNewMatrix);
+//			m_stSprite.transform.matrix = stMatrix;
+//			trace("Bf: a: "+a+" c: "+c);
+//			trace('Af: a: '+na+" c: "+nc);
+//			trace(m_stHeading.nX,m_stHeading.nY);
+//			trace("nAngle: "+nRad*180/Math.PI);
+			//trace(m_stShape.scaleX,m_stShape.scaleY);
 //			var nowMatrix:Matrix = new Matrix;
 //			nowMatrix.a = m_stHeading.nX;
 //			nowMatrix.b = m_stHeading.nY;
@@ -291,6 +352,15 @@ package baseGameEntity.vehicle
 //			nowMatrix.tx = 0;
 //			nowMatrix.ty = 0;
 //			stMatrix.concat(nowMatrix);
+//			trace(m_stSprite.x,m_stSprite.y);
+//			trace(m_stShape.x,m_stShape.y);
+//			trace(this.x,this.y);
+			
+			for(var i:int = 0;i<m_szVehicleVB.length;++i)
+			{
+				m_szVehicleVBTMP[i] = TransformationHandle.Get().VectorToParentSpace(m_szVehicleVB[i],m_stHeading,m_stSide);
+			}
+			DrawVehicleShape(m_szVehicleVBTMP);
 			
 			//stMatrix.setTo(m_stHeading.nX,m_stHeading.nY,m_stSide.nX,m_stSide.nY,0,0);
 			
@@ -305,8 +375,8 @@ package baseGameEntity.vehicle
 			//m_stRenderHeading = stTarPos;
 			//m_stSprite.transform.matrix = stMatrix;
 			
-			m_stRenderHeading.nX = m_stHeading.nX;
-			m_stRenderHeading.nY = m_stHeading.nY;
+			//m_stRenderHeading.nX = m_stHeading.nX;
+			//m_stRenderHeading.nY = m_stHeading.nY;
 		}
 		
 	}
